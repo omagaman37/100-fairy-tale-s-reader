@@ -5,6 +5,7 @@ import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
+import { VoiceRecordingsProvider } from "@/contexts/VoiceRecordingsContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -33,9 +34,11 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <FavoritesProvider>
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <RootLayoutNav />
-        </GestureHandlerRootView>
+        <VoiceRecordingsProvider>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <RootLayoutNav />
+          </GestureHandlerRootView>
+        </VoiceRecordingsProvider>
       </FavoritesProvider>
     </QueryClientProvider>
   );

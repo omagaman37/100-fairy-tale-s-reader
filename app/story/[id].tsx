@@ -9,11 +9,13 @@ import {
   Animated,
   Platform,
   Modal,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Speech from 'expo-speech';
+import { Audio } from 'expo-av';
 import {
   ArrowLeft,
   Heart,
@@ -29,11 +31,18 @@ import {
   X,
   ChevronRight,
   Settings,
+  Mic,
+  MicOff,
+  Trash2,
+  User,
+  Bot,
+  Check,
 } from 'lucide-react-native';
 
 import Colors from '@/constants/colors';
 import { getStoryById, FairyTale, fairyTales } from '@/mocks/fairyTales';
 import { useFavorites } from '@/contexts/FavoritesContext';
+import { useVoiceRecordings } from '@/contexts/VoiceRecordingsContext';
 
 type AutoPlayMode = 'off' | 'continuous' | 'shuffle';
 
@@ -56,6 +65,14 @@ export default function StoryScreen() {
   }>();
   const router = useRouter();
   const { isFavorite, toggleFavorite } = useFavorites();
+  const { 
+    voicePreference, 
+    setVoicePreference, 
+    hasRecording, 
+    getRecording, 
+    saveRecording,
+    deleteRecording,
+  } = useVoiceRecordings();
   
   const [story, setStory] = useState<FairyTale | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -67,20 +84,28 @@ export default function StoryScreen() {
     sleepRemaining ? parseInt(sleepRemaining, 10) : 0
   );
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [showRecordingModal, setShowRecordingModal] = useState(false);
+  const [permissionResponse, requestPermission] = Audio.usePermissions();
   
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const recordPulseAnim = useRef(new Animated.Value(1)).current;
   const sleepTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentSentenceIndex = useRef(0);
   const sentences = useRef<string[]>([]);
   const isSpeakingRef = useRef(false);
   const sleepTimeRemainingRef = useRef(sleepRemaining ? parseInt(sleepRemaining, 10) : 0);
+  const recordingRef = useRef<Audio.Recording | null>(null);
+  const soundRef = useRef<Audio.Sound | null>(null);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const customAudioPositionRef = useRef(0);
 
   useEffect(() => {
     if (id) {
       const foundStory = getStoryById(id);
       setStory(foundStory || null);
       if (foundStory) {
-        // Split content into sentences for pause/resume support
         sentences.current = foundStory.content
           .split(/(?<=[.!?])\s+/)
           .filter(s => s.trim().length > 0);
@@ -89,6 +114,9 @@ export default function StoryScreen() {
       console.log('Story loaded:', foundStory?.title);
     }
   }, [id]);
+
+  const storyHasRecording = story ? hasRecording(story.id) : false;
+  const shouldUseCustomVoice = voicePreference === 'custom' && storyHasRecording;
 
   const getNextStory = useCallback(() => {
     if (!story) return null;
@@ -107,71 +135,73 @@ export default function StoryScreen() {
     return null;
   }, [story, autoPlayMode]);
 
-  // Auto-start playback when coming from auto-play
   const hasAutoStarted = useRef(false);
   useEffect(() => {
     if (autoStart === 'true' && story && !hasAutoStarted.current) {
       hasAutoStarted.current = true;
       console.log('Auto-starting playback for:', story.title);
       setIsPlaying(true);
-      // Small delay to ensure state is ready
       setTimeout(() => {
-        isSpeakingRef.current = true;
-        currentSentenceIndex.current = 0;
-        
-        const speakNextSentenceLocal = () => {
-          if (!isSpeakingRef.current || currentSentenceIndex.current >= sentences.current.length) {
-            isSpeakingRef.current = false;
-            setIsPlaying(false);
-            return;
-          }
+        if (shouldUseCustomVoice) {
+          playCustomRecording();
+        } else {
+          isSpeakingRef.current = true;
+          currentSentenceIndex.current = 0;
           
-          const sentence = sentences.current[currentSentenceIndex.current];
-          Speech.speak(sentence, {
-            language: 'en-US',
-            pitch: 1.0,
-            rate: 0.85,
-            onDone: () => {
-              if (isSpeakingRef.current) {
-                currentSentenceIndex.current += 1;
-                if (currentSentenceIndex.current >= sentences.current.length) {
-                  isSpeakingRef.current = false;
-                  setIsPlaying(false);
-                  // Trigger next story after current finishes
-                  if (autoPlayMode !== 'off') {
-                    currentSentenceIndex.current = 0;
-                    const nextStory = getNextStory();
-                    if (nextStory) {
-                      router.replace({
-                        pathname: '/story/[id]',
-                        params: { 
-                          id: nextStory.id,
-                          autoStart: 'true',
-                          sleepRemaining: sleepTimeRemainingRef.current.toString(),
-                          autoPlayMode: autoPlayMode,
-                        },
-                      });
-                    }
-                  }
-                } else {
-                  speakNextSentenceLocal();
-                }
-              }
-            },
-            onStopped: () => {
-              console.log(`Paused at sentence ${currentSentenceIndex.current + 1}`);
-            },
-            onError: () => {
+          const speakNextSentenceLocal = () => {
+            if (!isSpeakingRef.current || currentSentenceIndex.current >= sentences.current.length) {
               isSpeakingRef.current = false;
               setIsPlaying(false);
-            },
-          });
-        };
-        
-        speakNextSentenceLocal();
+              return;
+            }
+            
+            const sentence = sentences.current[currentSentenceIndex.current];
+            Speech.speak(sentence, {
+              language: 'en-US',
+              pitch: 1.0,
+              rate: 0.85,
+              onDone: () => {
+                if (isSpeakingRef.current) {
+                  currentSentenceIndex.current += 1;
+                  if (currentSentenceIndex.current >= sentences.current.length) {
+                    isSpeakingRef.current = false;
+                    setIsPlaying(false);
+                    if (autoPlayMode !== 'off') {
+                      currentSentenceIndex.current = 0;
+                      const nextStory = getNextStory();
+                      if (nextStory) {
+                        router.replace({
+                          pathname: '/story/[id]',
+                          params: { 
+                            id: nextStory.id,
+                            autoStart: 'true',
+                            sleepRemaining: sleepTimeRemainingRef.current.toString(),
+                            autoPlayMode: autoPlayMode,
+                          },
+                        });
+                      }
+                    }
+                  } else {
+                    speakNextSentenceLocal();
+                  }
+                }
+              },
+              onStopped: () => {
+                console.log(`Paused at sentence ${currentSentenceIndex.current + 1}`);
+              },
+              onError: () => {
+                isSpeakingRef.current = false;
+                setIsPlaying(false);
+              },
+            });
+          };
+          
+          speakNextSentenceLocal();
+        }
       }, 100);
     }
-  }, [autoStart, story, autoPlayMode, getNextStory, router, sleepTimeRemaining]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart, story, autoPlayMode, getNextStory, router, sleepTimeRemaining, shouldUseCustomVoice]);
 
   useEffect(() => {
     if (isPlaying) {
@@ -195,21 +225,46 @@ export default function StoryScreen() {
   }, [isPlaying, pulseAnim]);
 
   useEffect(() => {
+    if (isRecording) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(recordPulseAnim, {
+            toValue: 1.2,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+          Animated.timing(recordPulseAnim, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      recordPulseAnim.setValue(1);
+    }
+  }, [isRecording, recordPulseAnim]);
+
+  useEffect(() => {
     return () => {
       isSpeakingRef.current = false;
       Speech.stop();
       if (sleepTimerRef.current) {
         clearInterval(sleepTimerRef.current);
       }
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+      }
+      if (soundRef.current) {
+        soundRef.current.unloadAsync();
+      }
     };
   }, []);
 
-  // Keep ref in sync with state
   useEffect(() => {
     sleepTimeRemainingRef.current = sleepTimeRemaining;
   }, [sleepTimeRemaining]);
 
-  // Sleep timer countdown
   useEffect(() => {
     if (sleepTimeRemaining > 0 && isPlaying) {
       sleepTimerRef.current = setInterval(() => {
@@ -218,6 +273,9 @@ export default function StoryScreen() {
           sleepTimeRemainingRef.current = newValue;
           if (newValue <= 0) {
             Speech.stop();
+            if (soundRef.current) {
+              soundRef.current.stopAsync();
+            }
             setIsPlaying(false);
             console.log('Sleep timer ended - stopping playback');
             return 0;
@@ -246,7 +304,6 @@ export default function StoryScreen() {
     const nextStory = getNextStory();
     if (nextStory) {
       console.log(`Auto-playing next story: ${nextStory.title}, sleep remaining: ${sleepTimeRemainingRef.current}`);
-      // Pass autoStart param and preserve sleep timer state
       router.replace({
         pathname: '/story/[id]',
         params: { 
@@ -263,6 +320,69 @@ export default function StoryScreen() {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }, []);
+
+  const formatRecordingDuration = useCallback((seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }, []);
+
+  const playCustomRecording = useCallback(async () => {
+    if (!story) return;
+    
+    const recording = getRecording(story.id);
+    if (!recording) {
+      console.log('No custom recording found');
+      return;
+    }
+
+    try {
+      if (soundRef.current) {
+        await soundRef.current.unloadAsync();
+      }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+      });
+
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: recording.uri },
+        { shouldPlay: true, positionMillis: customAudioPositionRef.current }
+      );
+      
+      soundRef.current = sound;
+
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded) {
+          if (status.didJustFinish) {
+            setIsPlaying(false);
+            customAudioPositionRef.current = 0;
+            if (autoPlayMode !== 'off') {
+              playNextStory();
+            }
+          } else if (status.positionMillis) {
+            customAudioPositionRef.current = status.positionMillis;
+          }
+        }
+      });
+
+      console.log('Playing custom recording from:', recording.uri);
+    } catch (error) {
+      console.log('Error playing custom recording:', error);
+      setIsPlaying(false);
+    }
+  }, [story, getRecording, autoPlayMode, playNextStory]);
+
+  const pauseCustomRecording = useCallback(async () => {
+    if (soundRef.current) {
+      const status = await soundRef.current.getStatusAsync();
+      if (status.isLoaded) {
+        customAudioPositionRef.current = status.positionMillis;
+        await soundRef.current.pauseAsync();
+      }
+    }
   }, []);
 
   const speakFromIndex = useCallback((startIndex: number) => {
@@ -296,7 +416,6 @@ export default function StoryScreen() {
           }
         },
         onStopped: () => {
-          // Keep current index when stopped (paused)
           console.log(`Paused at sentence ${currentSentenceIndex.current + 1}`);
         },
         onError: () => {
@@ -313,34 +432,165 @@ export default function StoryScreen() {
     if (!story) return;
 
     if (isPlaying) {
-      // Pause - stop speaking but keep position
-      isSpeakingRef.current = false;
-      await Speech.stop();
+      if (shouldUseCustomVoice) {
+        await pauseCustomRecording();
+      } else {
+        isSpeakingRef.current = false;
+        await Speech.stop();
+      }
       setIsPlaying(false);
       console.log(`Paused at sentence index: ${currentSentenceIndex.current}`);
     } else {
-      // Resume from current position
       setIsPlaying(true);
-      speakFromIndex(currentSentenceIndex.current);
+      if (shouldUseCustomVoice) {
+        await playCustomRecording();
+      } else {
+        speakFromIndex(currentSentenceIndex.current);
+      }
     }
-  }, [story, isPlaying, speakFromIndex]);
+  }, [story, isPlaying, speakFromIndex, shouldUseCustomVoice, playCustomRecording, pauseCustomRecording]);
 
   const handleRestart = useCallback(async () => {
     if (!story) return;
-    isSpeakingRef.current = false;
-    await Speech.stop();
-    currentSentenceIndex.current = 0;
+    
+    if (shouldUseCustomVoice) {
+      customAudioPositionRef.current = 0;
+      if (soundRef.current) {
+        await soundRef.current.setPositionAsync(0);
+        await soundRef.current.playAsync();
+      } else {
+        await playCustomRecording();
+      }
+    } else {
+      isSpeakingRef.current = false;
+      await Speech.stop();
+      currentSentenceIndex.current = 0;
+      speakFromIndex(0);
+    }
     setIsPlaying(true);
-    speakFromIndex(0);
-  }, [story, speakFromIndex]);
+  }, [story, speakFromIndex, shouldUseCustomVoice, playCustomRecording]);
 
   const handleToggleMute = useCallback(() => {
     setIsMuted(!isMuted);
     if (!isMuted && isPlaying) {
       Speech.stop();
+      if (soundRef.current) {
+        soundRef.current.stopAsync();
+      }
       setIsPlaying(false);
     }
   }, [isMuted, isPlaying]);
+
+  const startRecording = useCallback(async () => {
+    try {
+      if (permissionResponse?.status !== 'granted') {
+        console.log('Requesting permission..');
+        const result = await requestPermission();
+        if (result.status !== 'granted') {
+          Alert.alert('Permission Required', 'Please allow microphone access to record your voice.');
+          return;
+        }
+      }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      console.log('Starting recording..');
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      
+      recordingRef.current = recording;
+      setIsRecording(true);
+      setRecordingDuration(0);
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingDuration(prev => prev + 1);
+      }, 1000);
+
+      console.log('Recording started');
+    } catch (err) {
+      console.error('Failed to start recording', err);
+      Alert.alert('Error', 'Failed to start recording. Please try again.');
+    }
+  }, [permissionResponse, requestPermission]);
+
+  const stopRecording = useCallback(async () => {
+    if (!recordingRef.current || !story) return;
+
+    try {
+      console.log('Stopping recording..');
+      
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+      }
+
+      await recordingRef.current.stopAndUnloadAsync();
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+      });
+
+      const uri = recordingRef.current.getURI();
+      console.log('Recording stopped and stored at', uri);
+
+      if (uri) {
+        await saveRecording(story.id, uri, recordingDuration);
+        Alert.alert('Recording Saved', 'Your voice recording has been saved for this story.');
+      }
+
+      recordingRef.current = null;
+      setIsRecording(false);
+      setShowRecordingModal(false);
+    } catch (err) {
+      console.error('Failed to stop recording', err);
+      Alert.alert('Error', 'Failed to save recording. Please try again.');
+    }
+  }, [story, recordingDuration, saveRecording]);
+
+  const cancelRecording = useCallback(async () => {
+    if (recordingRef.current) {
+      try {
+        await recordingRef.current.stopAndUnloadAsync();
+      } catch (e) {
+        console.log('Error stopping recording:', e);
+      }
+    }
+    
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+    }
+
+    recordingRef.current = null;
+    setIsRecording(false);
+    setRecordingDuration(0);
+    setShowRecordingModal(false);
+  }, []);
+
+  const handleDeleteRecording = useCallback(() => {
+    if (!story) return;
+    
+    Alert.alert(
+      'Delete Recording',
+      'Are you sure you want to delete your voice recording for this story?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteRecording(story.id);
+            if (soundRef.current) {
+              await soundRef.current.unloadAsync();
+              soundRef.current = null;
+            }
+            customAudioPositionRef.current = 0;
+          },
+        },
+      ]
+    );
+  }, [story, deleteRecording]);
 
   if (!story) {
     return (
@@ -477,11 +727,48 @@ export default function StoryScreen() {
 
               <Text style={styles.playerHint}>
                 {isPlaying
-                  ? 'Listening to the story...'
-                  : 'Tap play to hear the story'}
+                  ? shouldUseCustomVoice 
+                    ? 'Playing your recording...'
+                    : 'Listening to the story...'
+                  : shouldUseCustomVoice
+                    ? 'Tap play to hear your recording'
+                    : 'Tap play to hear the story'}
               </Text>
 
-              {/* Auto-play & Timer Controls */}
+              {shouldUseCustomVoice && (
+                <View style={styles.voiceIndicator}>
+                  <User size={14} color={Colors.accent} />
+                  <Text style={styles.voiceIndicatorText}>Using your voice</Text>
+                </View>
+              )}
+
+              <View style={styles.recordSection}>
+                <TouchableOpacity
+                  style={[
+                    styles.recordButton,
+                    storyHasRecording && styles.recordButtonHasRecording,
+                  ]}
+                  onPress={() => setShowRecordingModal(true)}
+                >
+                  <Mic size={18} color={storyHasRecording ? Colors.accent : Colors.primary} />
+                  <Text style={[
+                    styles.recordButtonText,
+                    storyHasRecording && styles.recordButtonTextHasRecording,
+                  ]}>
+                    {storyHasRecording ? 'Recording Saved' : 'Record Your Voice'}
+                  </Text>
+                </TouchableOpacity>
+
+                {storyHasRecording && (
+                  <TouchableOpacity
+                    style={styles.deleteRecordingButton}
+                    onPress={handleDeleteRecording}
+                  >
+                    <Trash2 size={18} color={Colors.error} />
+                  </TouchableOpacity>
+                )}
+              </View>
+
               <View style={styles.autoPlaySection}>
                 <TouchableOpacity
                   style={styles.settingsButton}
@@ -492,7 +779,6 @@ export default function StoryScreen() {
                   <ChevronRight size={16} color={Colors.textSecondary} />
                 </TouchableOpacity>
 
-                {/* Status indicators */}
                 <View style={styles.statusRow}>
                   {autoPlayMode !== 'off' && (
                     <View style={styles.statusBadge}>
@@ -531,7 +817,6 @@ export default function StoryScreen() {
         </View>
       </ScrollView>
 
-      {/* Settings Modal */}
       <Modal
         visible={showSettingsModal}
         transparent
@@ -550,7 +835,59 @@ export default function StoryScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Auto-play Mode */}
+            <View style={styles.settingSection}>
+              <View style={styles.settingLabelRow}>
+                <Volume2 size={20} color={Colors.primary} />
+                <Text style={styles.settingLabel}>Voice Selection</Text>
+              </View>
+              <Text style={styles.settingDescription}>
+                Choose which voice to use for all stories
+              </Text>
+              <View style={styles.voiceOptions}>
+                <TouchableOpacity
+                  style={[
+                    styles.voiceOption,
+                    voicePreference === 'ai' && styles.voiceOptionActive,
+                  ]}
+                  onPress={() => setVoicePreference('ai')}
+                >
+                  <Bot size={20} color={voicePreference === 'ai' ? '#fff' : Colors.textSecondary} />
+                  <Text style={[
+                    styles.voiceOptionText,
+                    voicePreference === 'ai' && styles.voiceOptionTextActive,
+                  ]}>
+                    AI Voice
+                  </Text>
+                  {voicePreference === 'ai' && (
+                    <Check size={16} color="#fff" />
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.voiceOption,
+                    voicePreference === 'custom' && styles.voiceOptionActive,
+                  ]}
+                  onPress={() => setVoicePreference('custom')}
+                >
+                  <User size={20} color={voicePreference === 'custom' ? '#fff' : Colors.textSecondary} />
+                  <Text style={[
+                    styles.voiceOptionText,
+                    voicePreference === 'custom' && styles.voiceOptionTextActive,
+                  ]}>
+                    Your Voice
+                  </Text>
+                  {voicePreference === 'custom' && (
+                    <Check size={16} color="#fff" />
+                  )}
+                </TouchableOpacity>
+              </View>
+              {voicePreference === 'custom' && (
+                <Text style={styles.voiceNote}>
+                  Uses your recorded voice when available, AI voice otherwise
+                </Text>
+              )}
+            </View>
+
             <View style={styles.settingSection}>
               <Text style={styles.settingLabel}>Auto-Play Mode</Text>
               <Text style={styles.settingDescription}>
@@ -616,7 +953,6 @@ export default function StoryScreen() {
               </View>
             </View>
 
-            {/* Sleep Timer */}
             <View style={styles.settingSection}>
               <View style={styles.settingLabelRow}>
                 <Moon size={20} color={Colors.primary} />
@@ -667,6 +1003,76 @@ export default function StoryScreen() {
             >
               <Text style={styles.modalDoneButtonText}>Done</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showRecordingModal}
+        transparent
+        animationType="slide"
+        onRequestClose={cancelRecording}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.recordingModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Record Your Voice</Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={cancelRecording}
+              >
+                <X size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.recordingInstructions}>
+              Read the story aloud and record your voice. Your recording will be saved and can be used to play this story later.
+            </Text>
+
+            <View style={styles.recordingVisual}>
+              <Animated.View style={[
+                styles.recordingCircle,
+                isRecording && { transform: [{ scale: recordPulseAnim }] },
+              ]}>
+                {isRecording ? (
+                  <MicOff size={48} color="#fff" />
+                ) : (
+                  <Mic size={48} color="#fff" />
+                )}
+              </Animated.View>
+              
+              <Text style={styles.recordingDuration}>
+                {formatRecordingDuration(recordingDuration)}
+              </Text>
+              
+              {isRecording && (
+                <Text style={styles.recordingStatus}>Recording...</Text>
+              )}
+            </View>
+
+            <View style={styles.recordingActions}>
+              {!isRecording ? (
+                <TouchableOpacity
+                  style={styles.startRecordButton}
+                  onPress={startRecording}
+                >
+                  <Mic size={24} color="#fff" />
+                  <Text style={styles.startRecordButtonText}>Start Recording</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.stopRecordButton}
+                  onPress={stopRecording}
+                >
+                  <MicOff size={24} color="#fff" />
+                  <Text style={styles.stopRecordButtonText}>Stop & Save</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <Text style={styles.recordingTip}>
+              Tip: Find a quiet place and speak clearly for the best recording quality.
+            </Text>
           </View>
         </View>
       </Modal>
@@ -837,6 +1243,61 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textSecondary,
   },
+  voiceIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: Colors.accent + '20',
+    borderRadius: 12,
+  },
+  voiceIndicatorText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: Colors.accent,
+  },
+  recordSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 16,
+    width: '100%',
+  },
+  recordButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: Colors.primary + '15',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.primary + '30',
+  },
+  recordButtonHasRecording: {
+    backgroundColor: Colors.accent + '15',
+    borderColor: Colors.accent + '30',
+  },
+  recordButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.primary,
+  },
+  recordButtonTextHasRecording: {
+    color: Colors.accent,
+  },
+  deleteRecordingButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: Colors.error + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   autoPlaySection: {
     width: '100%',
     marginTop: 20,
@@ -920,6 +1381,13 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingBottom: 40,
   },
+  recordingModalContent: {
+    backgroundColor: Colors.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+  },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -957,6 +1425,42 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textSecondary,
     marginBottom: 12,
+  },
+  voiceOptions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  voiceOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  voiceOptionActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  voiceOptionText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.textSecondary,
+  },
+  voiceOptionTextActive: {
+    color: '#fff',
+  },
+  voiceNote: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
+    marginTop: 8,
+    textAlign: 'center',
   },
   autoPlayOptions: {
     flexDirection: 'row',
@@ -1039,5 +1543,79 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600' as const,
     color: '#fff',
+  },
+  recordingInstructions: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  recordingVisual: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  recordingCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: Colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    shadowColor: Colors.error,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  recordingDuration: {
+    fontSize: 36,
+    fontWeight: '700' as const,
+    color: Colors.text,
+    fontVariant: ['tabular-nums'],
+  },
+  recordingStatus: {
+    fontSize: 14,
+    color: Colors.error,
+    fontWeight: '600' as const,
+    marginTop: 4,
+  },
+  recordingActions: {
+    marginBottom: 20,
+  },
+  startRecordButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: Colors.error,
+    paddingVertical: 16,
+    borderRadius: 12,
+  },
+  startRecordButtonText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#fff',
+  },
+  stopRecordButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: Colors.primary,
+    paddingVertical: 16,
+    borderRadius: 12,
+  },
+  stopRecordButtonText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#fff',
+  },
+  recordingTip: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });
