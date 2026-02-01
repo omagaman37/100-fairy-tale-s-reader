@@ -1009,72 +1009,78 @@ export default function StoryScreen() {
 
       <Modal
         visible={showRecordingModal}
-        transparent
+        transparent={false}
         animationType="slide"
         onRequestClose={cancelRecording}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.recordingModalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Record Your Voice</Text>
-              <TouchableOpacity
-                style={styles.modalCloseButton}
-                onPress={cancelRecording}
-              >
-                <X size={24} color={Colors.text} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.recordingInstructions}>
-              Read the story aloud and record your voice. Your recording will be saved and can be used to play this story later.
-            </Text>
-
-            <View style={styles.recordingVisual}>
-              <Animated.View style={[
-                styles.recordingCircle,
-                isRecording && { transform: [{ scale: recordPulseAnim }] },
-              ]}>
-                {isRecording ? (
-                  <MicOff size={48} color="#fff" />
-                ) : (
-                  <Mic size={48} color="#fff" />
-                )}
-              </Animated.View>
-              
-              <Text style={styles.recordingDuration}>
-                {formatRecordingDuration(recordingDuration)}
-              </Text>
-              
-              {isRecording && (
-                <Text style={styles.recordingStatus}>Recording...</Text>
-              )}
-            </View>
-
-            <View style={styles.recordingActions}>
-              {!isRecording ? (
-                <TouchableOpacity
-                  style={styles.startRecordButton}
-                  onPress={startRecording}
-                >
-                  <Mic size={24} color="#fff" />
-                  <Text style={styles.startRecordButtonText}>Start Recording</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={styles.stopRecordButton}
-                  onPress={stopRecording}
-                >
-                  <MicOff size={24} color="#fff" />
-                  <Text style={styles.stopRecordButtonText}>Stop & Save</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <Text style={styles.recordingTip}>
-              Tip: Find a quiet place and speak clearly for the best recording quality.
-            </Text>
+        <SafeAreaView style={styles.recordingModalContainer} edges={['top', 'bottom']}>
+          <View style={styles.recordingHeader}>
+            <TouchableOpacity
+              style={styles.recordingCloseButton}
+              onPress={cancelRecording}
+            >
+              <X size={24} color={Colors.text} />
+            </TouchableOpacity>
+            <Text style={styles.recordingHeaderTitle}>Record Your Voice</Text>
+            <View style={styles.recordingHeaderSpacer} />
           </View>
-        </View>
+
+          <View style={styles.recordingControlsBar}>
+            <Animated.View style={[
+              styles.recordingIndicator,
+              isRecording && { transform: [{ scale: recordPulseAnim }] },
+            ]}>
+              {isRecording ? (
+                <MicOff size={20} color="#fff" />
+              ) : (
+                <Mic size={20} color="#fff" />
+              )}
+            </Animated.View>
+            
+            <Text style={styles.recordingTimerText}>
+              {formatRecordingDuration(recordingDuration)}
+            </Text>
+
+            {!isRecording ? (
+              <TouchableOpacity
+                style={styles.recordControlButton}
+                onPress={startRecording}
+              >
+                <Mic size={18} color="#fff" />
+                <Text style={styles.recordControlButtonText}>Start</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.recordControlButton, styles.stopControlButton]}
+                onPress={stopRecording}
+              >
+                <MicOff size={18} color="#fff" />
+                <Text style={styles.recordControlButtonText}>Stop & Save</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <View style={styles.storyReadAlongHeader}>
+            <BookOpen size={16} color={Colors.primary} />
+            <Text style={styles.storyReadAlongTitle}>Read along as you record</Text>
+          </View>
+
+          <ScrollView 
+            style={styles.recordingStoryScroll}
+            showsVerticalScrollIndicator={true}
+            contentContainerStyle={styles.recordingStoryContent}
+          >
+            <Text style={styles.recordingStoryTitle}>{story.title}</Text>
+            <Text style={styles.recordingStoryText}>{story.content}</Text>
+          </ScrollView>
+
+          {isRecording && (
+            <View style={styles.recordingActiveBar}>
+              <View style={styles.recordingPulse} />
+              <Text style={styles.recordingActiveText}>Recording in progress...</Text>
+            </View>
+          )}
+        </SafeAreaView>
       </Modal>
     </View>
   );
@@ -1387,6 +1393,128 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     padding: 24,
     paddingBottom: 40,
+  },
+  recordingModalContainer: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  recordingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  recordingCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.cardBackground,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recordingHeaderTitle: {
+    fontSize: 17,
+    fontWeight: '600' as const,
+    color: Colors.text,
+  },
+  recordingHeaderSpacer: {
+    width: 40,
+  },
+  recordingControlsBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: Colors.cardBackground,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  recordingIndicator: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recordingTimerText: {
+    fontSize: 24,
+    fontWeight: '700' as const,
+    color: Colors.text,
+    fontVariant: ['tabular-nums'],
+    minWidth: 70,
+  },
+  recordControlButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.error,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+  },
+  stopControlButton: {
+    backgroundColor: Colors.primary,
+  },
+  recordControlButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#fff',
+  },
+  storyReadAlongHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: Colors.primary + '10',
+  },
+  storyReadAlongTitle: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.primary,
+  },
+  recordingStoryScroll: {
+    flex: 1,
+  },
+  recordingStoryContent: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  recordingStoryTitle: {
+    fontSize: 24,
+    fontWeight: '700' as const,
+    color: Colors.text,
+    marginBottom: 20,
+  },
+  recordingStoryText: {
+    fontSize: 20,
+    color: Colors.text,
+    lineHeight: 34,
+  },
+  recordingActiveBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    backgroundColor: Colors.error,
+  },
+  recordingPulse: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#fff',
+  },
+  recordingActiveText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#fff',
   },
   modalHeader: {
     flexDirection: 'row',
