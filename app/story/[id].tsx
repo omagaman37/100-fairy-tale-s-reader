@@ -67,9 +67,7 @@ export default function StoryScreen() {
   const { isFavorite, toggleFavorite } = useFavorites();
   const { 
     voicePreference, 
-    setVoicePreference,
-    aiVoiceGender,
-    setAiVoiceGender,
+    setVoicePreference, 
     hasRecording, 
     getRecording, 
     saveRecording,
@@ -160,7 +158,7 @@ export default function StoryScreen() {
             const sentence = sentences.current[currentSentenceIndex.current];
             Speech.speak(sentence, {
               language: 'en-US',
-              pitch: aiVoiceGender === 'male' ? 0.8 : 1.15,
+              pitch: 1.15,
               rate: 0.85,
               onDone: () => {
                 if (isSpeakingRef.current) {
@@ -409,7 +407,7 @@ export default function StoryScreen() {
       
       Speech.speak(sentence, {
         language: 'en-US',
-        pitch: aiVoiceGender === 'male' ? 0.8 : 1.15,
+        pitch: 1.15,
         rate: 0.85,
         onDone: () => {
           if (isSpeakingRef.current) {
@@ -428,7 +426,7 @@ export default function StoryScreen() {
     };
     
     speakNextSentence();
-  }, [story, autoPlayMode, playNextStory, aiVoiceGender]);
+  }, [story, autoPlayMode, playNextStory]);
 
   const handlePlay = useCallback(async () => {
     if (!story) return;
@@ -890,47 +888,6 @@ export default function StoryScreen() {
                 </Text>
               )}
 
-              {voicePreference === 'ai' && (
-                <View style={styles.genderSection}>
-                  <Text style={styles.genderLabel}>AI Voice Gender</Text>
-                  <View style={styles.genderOptions}>
-                    <TouchableOpacity
-                      style={[
-                        styles.genderOption,
-                        aiVoiceGender === 'female' && styles.genderOptionActive,
-                      ]}
-                      onPress={() => setAiVoiceGender('female')}
-                    >
-                      <Text style={[
-                        styles.genderOptionText,
-                        aiVoiceGender === 'female' && styles.genderOptionTextActive,
-                      ]}>
-                        Female
-                      </Text>
-                      {aiVoiceGender === 'female' && (
-                        <Check size={14} color="#fff" />
-                      )}
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.genderOption,
-                        aiVoiceGender === 'male' && styles.genderOptionActive,
-                      ]}
-                      onPress={() => setAiVoiceGender('male')}
-                    >
-                      <Text style={[
-                        styles.genderOptionText,
-                        aiVoiceGender === 'male' && styles.genderOptionTextActive,
-                      ]}>
-                        Male
-                      </Text>
-                      {aiVoiceGender === 'male' && (
-                        <Check size={14} color="#fff" />
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
             </View>
 
             <View style={styles.settingSection}>
