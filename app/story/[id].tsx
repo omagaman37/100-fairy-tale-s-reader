@@ -160,7 +160,7 @@ export default function StoryScreen() {
             const sentence = sentences.current[currentSentenceIndex.current];
             Speech.speak(sentence, {
               language: 'en-US',
-              pitch: aiVoiceGender === 'male' ? 0.9 : 1.1,
+              pitch: aiVoiceGender === 'male' ? 0.75 : 1.15,
               rate: 0.85,
               onDone: () => {
                 if (isSpeakingRef.current) {
@@ -409,7 +409,7 @@ export default function StoryScreen() {
       
       Speech.speak(sentence, {
         language: 'en-US',
-        pitch: aiVoiceGender === 'male' ? 0.9 : 1.1,
+        pitch: aiVoiceGender === 'male' ? 0.75 : 1.15,
         rate: 0.85,
         onDone: () => {
           if (isSpeakingRef.current) {
