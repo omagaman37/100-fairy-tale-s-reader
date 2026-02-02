@@ -159,6 +159,28 @@ For years, the blind prince wandered until he heard a familiar voice singing. It
 Together at last, they returned to his kingdom and lived happily ever after.`,
   },
   {
+    title: 'Rumpelstiltskin',
+    author: 'Brothers Grimm',
+    summary: 'A mysterious imp helps a miller\'s daughter spin straw into gold.',
+    content: `Once upon a time, there was a poor miller who had a beautiful daughter. One day, he boasted to the king that his daughter could spin straw into gold.
+
+The greedy king locked the girl in a room filled with straw. "Spin this into gold by morning, or you shall die," he commanded.
+
+The poor girl wept, for she had no such power. Suddenly, a strange little man appeared. "What will you give me if I spin it for you?" he asked. She gave him her necklace, and by morning, the straw was gold.
+
+The king was delighted but greedy for more. He put her in an even larger room of straw. Again the little man came, and she gave him her ring.
+
+The third night, the king promised to marry her if she succeeded. But the girl had nothing left to give. "Promise me your firstborn child," said the little man. Desperate, she agreed.
+
+The girl became queen, and when her first child was born, the little man returned to claim it. The queen wept so bitterly that he took pity. "I will give you three days. If you can guess my name, you may keep your child."
+
+The queen sent messengers across the land. On the third day, one returned with strange news: he had seen a little man dancing around a fire, singing, "Tonight I brew, tomorrow I bake, then the queen's child I shall take! Little does she know, Rumpelstiltskin is my name!"
+
+When the little man came, the queen pretended to guess wrong twice. Then she smiled. "Is your name... Rumpelstiltskin?"
+
+The little man shrieked with rage. He stamped his foot so hard it went through the floor, and he was never seen again. The queen kept her child, and they lived happily ever after.`,
+  },
+  {
     title: 'The Frog Prince',
     author: 'Brothers Grimm',
     summary: 'A princess learns that kindness can transform even a frog.',
