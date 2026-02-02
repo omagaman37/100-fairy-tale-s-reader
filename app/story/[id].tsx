@@ -87,7 +87,7 @@ export default function StoryScreen() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [showRecordingModal, setShowRecordingModal] = useState(false);
-  const [permissionResponse, requestPermission] = Audio.usePermissions();
+  const [permissionStatus, setPermissionStatus] = useState<'undetermined' | 'granted' | 'denied'>('undetermined');
   
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const recordPulseAnim = useRef(new Animated.Value(1)).current;
@@ -483,9 +483,10 @@ export default function StoryScreen() {
 
   const startRecording = useCallback(async () => {
     try {
-      if (permissionResponse?.status !== 'granted') {
+      if (permissionStatus !== 'granted') {
         console.log('Requesting permission..');
-        const result = await requestPermission();
+        const result = await Audio.requestPermissionsAsync();
+        setPermissionStatus(result.status === 'granted' ? 'granted' : 'denied');
         if (result.status !== 'granted') {
           Alert.alert('Permission Required', 'Please allow microphone access to record your voice.');
           return;
@@ -515,7 +516,7 @@ export default function StoryScreen() {
       console.error('Failed to start recording', err);
       Alert.alert('Error', 'Failed to start recording. Please try again.');
     }
-  }, [permissionResponse, requestPermission]);
+  }, [permissionStatus]);
 
   const stopRecording = useCallback(async () => {
     if (!recordingRef.current || !story) return;
