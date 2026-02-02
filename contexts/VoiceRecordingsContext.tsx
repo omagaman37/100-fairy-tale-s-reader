@@ -6,8 +6,10 @@ import createContextHook from '@nkzw/create-context-hook';
 
 const RECORDINGS_KEY = 'story_voice_recordings';
 const VOICE_PREFERENCE_KEY = 'voice_preference';
+const AI_VOICE_GENDER_KEY = 'ai_voice_gender';
 
 export type VoicePreference = 'ai' | 'custom';
+export type AIVoiceGender = 'female' | 'male';
 
 interface RecordingData {
   storyId: string;
@@ -23,6 +25,7 @@ interface RecordingsState {
 export const [VoiceRecordingsProvider, useVoiceRecordings] = createContextHook(() => {
   const [recordings, setRecordings] = useState<RecordingsState>({});
   const [voicePreference, setVoicePreferenceState] = useState<VoicePreference>('ai');
+  const [aiVoiceGender, setAiVoiceGenderState] = useState<AIVoiceGender>('female');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -31,9 +34,10 @@ export const [VoiceRecordingsProvider, useVoiceRecordings] = createContextHook((
 
   const loadData = async () => {
     try {
-      const [storedRecordings, storedPreference] = await Promise.all([
+      const [storedRecordings, storedPreference, storedGender] = await Promise.all([
         AsyncStorage.getItem(RECORDINGS_KEY),
         AsyncStorage.getItem(VOICE_PREFERENCE_KEY),
+        AsyncStorage.getItem(AI_VOICE_GENDER_KEY),
       ]);
       
       if (storedRecordings) {
@@ -45,6 +49,11 @@ export const [VoiceRecordingsProvider, useVoiceRecordings] = createContextHook((
       if (storedPreference) {
         setVoicePreferenceState(storedPreference as VoicePreference);
         console.log('Loaded voice preference:', storedPreference);
+      }
+      
+      if (storedGender) {
+        setAiVoiceGenderState(storedGender as AIVoiceGender);
+        console.log('Loaded AI voice gender:', storedGender);
       }
     } catch (error) {
       console.log('Error loading voice data:', error);
@@ -68,6 +77,16 @@ export const [VoiceRecordingsProvider, useVoiceRecordings] = createContextHook((
       console.log('Voice preference saved:', preference);
     } catch (error) {
       console.log('Error saving voice preference:', error);
+    }
+  }, []);
+
+  const setAiVoiceGender = useCallback(async (gender: AIVoiceGender) => {
+    setAiVoiceGenderState(gender);
+    try {
+      await AsyncStorage.setItem(AI_VOICE_GENDER_KEY, gender);
+      console.log('AI voice gender saved:', gender);
+    } catch (error) {
+      console.log('Error saving AI voice gender:', error);
     }
   }, []);
 
@@ -141,8 +160,10 @@ export const [VoiceRecordingsProvider, useVoiceRecordings] = createContextHook((
   return {
     recordings,
     voicePreference,
+    aiVoiceGender,
     isLoading,
     setVoicePreference,
+    setAiVoiceGender,
     saveRecording,
     deleteRecording,
     getRecording,
