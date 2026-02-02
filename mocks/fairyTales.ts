@@ -283,7 +283,29 @@ const additionalTales: Partial<FairyTale>[] = [
   { title: 'Thumbelina', author: 'Hans Christian Andersen', category: 'Magic', summary: 'A tiny girl born from a flower seeks her place in the world.' },
   { title: 'The Princess and the Pea', author: 'Hans Christian Andersen', category: 'Princesses', summary: 'A prince finds his true princess in an unexpected way.' },
   { title: 'Puss in Boots', author: 'Charles Perrault', category: 'Animals', summary: 'A clever cat helps his master win fortune and love.' },
-  { title: 'Rumpelstiltskin', author: 'Brothers Grimm', category: 'Magic', summary: 'A miller\'s daughter must guess a magical imp\'s name.' },
+  { title: 'Rumpelstiltskin', author: 'Brothers Grimm', category: 'Magic', summary: 'A miller\'s daughter must guess a magical imp\'s name.', content: `Once upon a time, there lived a poor miller who had a beautiful daughter. One day, the miller boasted to the king that his daughter could spin straw into gold.
+
+The greedy king summoned the girl to his castle. He locked her in a room filled with straw and a spinning wheel. "Spin this straw into gold by morning, or you shall die," he commanded.
+
+The poor girl wept, for she had no such power. Suddenly, a strange little man appeared. "What will you give me if I spin it for you?" he asked.
+
+"My necklace," she replied. The little man took it and sat at the wheel. By morning, the room glittered with gold.
+
+But the king wanted more. He put her in a larger room with even more straw. Again the little man appeared. This time she gave him her ring, and again he spun the straw into gold.
+
+The third night, the king promised to make her his queen if she succeeded. But she had nothing left to give. "Then promise me your firstborn child," said the little man. Desperate, she agreed.
+
+She became queen, and a year later, a beautiful baby was born. The little man returned to claim his prize. The queen wept and begged. "Very well," he said. "I will give you three days. If you can guess my name, you may keep your child."
+
+The queen sent messengers across the land to collect names. She guessed every name she knew, but none were right.
+
+On the third day, a messenger reported seeing a strange little man dancing around a fire, singing: "Tonight tonight, my plans I make, tomorrow tomorrow, the baby I take. The queen will never win the game, for Rumpelstiltskin is my name!"
+
+When the little man came, the queen pretended to guess wrong. "Is it Tom? Is it Harry?" Finally she said, "Could it be... Rumpelstiltskin?"
+
+The little man flew into a rage. "A witch told you! A witch told you!" he screamed. He stamped his foot so hard that he fell right through the floor and was never seen again.
+
+The queen kept her child, and they lived happily ever after.` },
   { title: 'The Snow Queen', author: 'Hans Christian Andersen', category: 'Adventure', summary: 'A girl journeys to the ends of the earth to save her friend.' },
   { title: 'The Twelve Dancing Princesses', author: 'Brothers Grimm', category: 'Princesses', summary: 'A soldier discovers the secret of twelve dancing princesses.' },
   { title: 'The Brave Little Tailor', author: 'Brothers Grimm', category: 'Adventure', summary: 'A tailor\'s boast leads him on an incredible adventure.' },
