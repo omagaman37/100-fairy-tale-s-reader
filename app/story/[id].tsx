@@ -68,6 +68,8 @@ export default function StoryScreen() {
   const { 
     voicePreference, 
     setVoicePreference, 
+    aiVoiceGender,
+    setAIVoiceGender,
     hasRecording, 
     getRecording, 
     saveRecording,
@@ -158,7 +160,7 @@ export default function StoryScreen() {
             const sentence = sentences.current[currentSentenceIndex.current];
             Speech.speak(sentence, {
               language: 'en-US',
-              pitch: 1.0,
+              pitch: aiVoiceGender === 'male' ? 0.9 : 1.1,
               rate: 0.85,
               onDone: () => {
                 if (isSpeakingRef.current) {
@@ -407,7 +409,7 @@ export default function StoryScreen() {
       
       Speech.speak(sentence, {
         language: 'en-US',
-        pitch: 1.0,
+        pitch: aiVoiceGender === 'male' ? 0.9 : 1.1,
         rate: 0.85,
         onDone: () => {
           if (isSpeakingRef.current) {
@@ -426,7 +428,7 @@ export default function StoryScreen() {
     };
     
     speakNextSentence();
-  }, [story, autoPlayMode, playNextStory]);
+  }, [story, autoPlayMode, playNextStory, aiVoiceGender]);
 
   const handlePlay = useCallback(async () => {
     if (!story) return;
@@ -885,6 +887,47 @@ export default function StoryScreen() {
                 <Text style={styles.voiceNote}>
                   Uses your recorded voice when available, AI voice otherwise
                 </Text>
+              )}
+              {voicePreference === 'ai' && (
+                <View style={styles.genderSection}>
+                  <Text style={styles.genderLabel}>AI Voice Gender</Text>
+                  <View style={styles.genderOptions}>
+                    <TouchableOpacity
+                      style={[
+                        styles.genderOption,
+                        aiVoiceGender === 'female' && styles.genderOptionActive,
+                      ]}
+                      onPress={() => setAIVoiceGender('female')}
+                    >
+                      <Text style={[
+                        styles.genderOptionText,
+                        aiVoiceGender === 'female' && styles.genderOptionTextActive,
+                      ]}>
+                        Female
+                      </Text>
+                      {aiVoiceGender === 'female' && (
+                        <Check size={14} color="#fff" />
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.genderOption,
+                        aiVoiceGender === 'male' && styles.genderOptionActive,
+                      ]}
+                      onPress={() => setAIVoiceGender('male')}
+                    >
+                      <Text style={[
+                        styles.genderOptionText,
+                        aiVoiceGender === 'male' && styles.genderOptionTextActive,
+                      ]}>
+                        Male
+                      </Text>
+                      {aiVoiceGender === 'male' && (
+                        <Check size={14} color="#fff" />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
               )}
             </View>
 
@@ -1589,6 +1632,44 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: 8,
     textAlign: 'center',
+  },
+  genderSection: {
+    marginTop: 16,
+  },
+  genderLabel: {
+    fontSize: 13,
+    fontWeight: '500' as const,
+    color: Colors.textSecondary,
+    marginBottom: 8,
+  },
+  genderOptions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  genderOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  genderOptionActive: {
+    backgroundColor: Colors.secondary,
+    borderColor: Colors.secondary,
+  },
+  genderOptionText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: Colors.textSecondary,
+  },
+  genderOptionTextActive: {
+    color: '#fff',
   },
   autoPlayOptions: {
     flexDirection: 'row',
